@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}Scan #{{ scan.id }} Detail{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>
+            <i class="fas fa-magnifying-glass-chart"></i>
+            Scan #{{ scan.id }} Detail
+        </h2>
+        <p>
+            {{ scan.repo.name if scan.repo else 'Unknown' }} —
+            commit {{ scan.commit_hash[:7] if scan.commit_hash else '—' }}
+        </p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{{ url_for('export_csv', scan_id=scan.id) }}"
+           class="btn-export btn-csv">
+            <i class="fas fa-file-csv"></i>
+            Download CSV
+        </a>
+        <a href="{{ url_for('export_pdf', scan_id=scan.id) }}"
+           class="btn-export btn-pdf">
+            <i class="fas fa-file-pdf"></i>
+            Download PDF
+        </a>
+    </div>
+</div>
+
+<!-- STAT CARDS -->
+<div class="stats-grid">
+    <div class="stat-card critical">
+        <div class="stat-icon"><i class="fas fa-circle-xmark"></i></div>
+        <div class="stat-info">
+            <span class="stat-number">{{ critical }}</span>
+            <span class="stat-label">Critical</span>
+        </div>
+    </div>
+    <div class="stat-card high">
+        <div class="stat-icon">
+            <i class="fas fa-triangle-exclamation"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-number">{{ high }}</span>
+            <span class="stat-label">High</span>
+        </div>
+    </div>
+    <div class="stat-card medium">
+        <div class="stat-icon">
+            <i class="fas fa-circle-exclamation"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-number">{{ medium }}</span>
+            <span class="stat-label">Medium</span>
+        </div>
+    </div>
+    <div class="stat-card low">
+        <div class="stat-icon"><i class="fas fa-circle-check"></i></div>
+        <div class="stat-info">
+            <span class="stat-number">{{ low }}</span>
+            <span class="stat-label">Low</span>
+        </div>
+    </div>
+</div>
+
+<!-- POSTURE + INFO ROW -->
+<div class="two-col-grid">
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i class="fas fa-shield-check"></i>
+                Posture Score
+            </h3>
+        </div>
+        <div class="posture-display">
+            <div class="posture-ring">
+                {% if current_score is not none %}
+                    <span class="posture-number {{ score_class }}">
+                        {{ current_score }}
+                    </span>
+                    <span class="posture-out-of">/10</span>
+                {% else %}
+                    <span class="posture-number">—</span>
+                    <span class="posture-out-of">/10</span>
+                {% endif %}
+            </div>
+            <div class="posture-meta">
+                <span class="posture-status
+                    {{ score_class if current_score is not none
+                       else 'neutral' }}">
+                    {{ score_label }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3><i class="fas fa-circle-info"></i> Scan Info</h3>
+        </div>
+        <div style="padding: 20px 24px;">
+            <table class="data-table">
+                <tr>
+                    <td style="color:var(--text-secondary);
+                                width:40%">Repository</td>
+                    <td>
+                        {{ scan.repo.name if scan.repo else 'Unknown' }}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color:var(--text-secondary)">Commit</td>
+                    <td>
+                        <code class="commit-hash">
+                            {{ scan.commit_hash[:7]
+                               if scan.commit_hash else '—' }}
+                        </code>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color:var(--text-secondary)">Started</td>
+                    <td>
+                        {{ scan.started_at.strftime('%Y-%m-%d %H:%M')
+                           if scan.started_at else '—' }}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color:var(--text-secondary)">Completed</td>
+                    <td>
+                        {{ scan.completed_at.strftime('%Y-%m-%d %H:%M')
+                           if scan.completed_at else '—' }}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color:var(--text-secondary)">Status</td>
+                    <td>
+                        <span class="status-badge
+                            status-{{ scan.status }}">
+                            {{ scan.status | capitalize }}
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- FINDINGS TABLE -->
+<div class="card">
+    <div class="card-header">
+        <h3>
+            <i class="fas fa-list-check"></i>
+            Findings ({{ findings | length }})
+        </h3>
+    </div>
+
+    {% if findings %}
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tool</th>
+                    <th>Severity</th>
+                    <th>Rule</th>
+                    <th>File</th>
+                    <th>Line</th>
+                    <th>Message</th>
+                    <th>Confidence</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in findings %}
+                <tr>
+                    <td>
+                        <span class="tool-badge tool-{{ f.tool }}">
+                            {{ f.tool | upper }}
+                        </span>
+                    </td>
+                    <td>
+                        {% set sev = f.normalized_severity %}
+                        {% if sev >= 9.0 %}
+                            <span class="severity-badge sev-critical">
+                                <i class="fas fa-circle-xmark"></i>
+                                {{ "%.1f"|format(sev) }}
+                            </span>
+                        {% elif sev >= 7.0 %}
+                            <span class="severity-badge sev-high">
+                                <i class="fas fa-triangle-exclamation"></i>
+                                {{ "%.1f"|format(sev) }}
+                            </span>
+                        {% elif sev >= 4.0 %}
+                            <span class="severity-badge sev-medium">
+                                <i class="fas fa-circle-exclamation"></i>
+                                {{ "%.1f"|format(sev) }}
+                            </span>
+                        {% else %}
+                            <span class="severity-badge sev-low">
+                                <i class="fas fa-circle-info"></i>
+                                {{ "%.1f"|format(sev) }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <code class="commit-hash">
+                            {{ f.rule_id[:30] if f.rule_id else '—' }}
+                        </code>
+                    </td>
+                    <td>
+                        {{ f.file_path[-40:] if f.file_path else '—' }}
+                    </td>
+                    <td>
+                        {{ f.line_number if f.line_number else '—' }}
+                    </td>
+                    <td>
+                        {{ f.message[:100] if f.message else '—' }}
+                    </td>
+                    <td>
+                        {% if f.confidence_label == 'Confirmed' %}
+                            <span class="confidence-badge conf-confirmed">
+                                <i class="fas fa-circle-check"></i>
+                                Confirmed
+                            </span>
+                        {% elif f.confidence_label == 'Review Needed' %}
+                            <span class="confidence-badge conf-review">
+                                <i class="fas fa-circle-question"></i>
+                                Review Needed
+                            </span>
+                        {% else %}
+                            <span class="confidence-badge conf-low">
+                                <i class="fas fa-circle-minus"></i>
+                                Low Confidence
+                            </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-shield-check empty-icon"></i>
+        <p>No findings for this scan</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

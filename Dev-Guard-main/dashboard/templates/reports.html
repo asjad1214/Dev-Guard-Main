@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2><i class="fas fa-file-arrow-down"></i> Reports</h2>
+        <p>Download scan results as CSV or PDF</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>
+            <i class="fas fa-clock-rotate-left"></i>
+            Completed Scans
+        </h3>
+    </div>
+
+    {% if scans %}
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Scan ID</th>
+                    <th>Repository</th>
+                    <th>Commit</th>
+                    <th>Date</th>
+                    <th>Posture Score</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scan in scans %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('scan_detail',
+                                           scan_id=scan.id) }}"
+                           style="color:var(--accent);
+                                  font-weight:600">
+                            #{{ scan.id }}
+                        </a>
+                    </td>
+                    <td>
+                        {{ scan.repo.name
+                           if scan.repo else 'Unknown' }}
+                    </td>
+                    <td>
+                        <code class="commit-hash">
+                            {{ scan.commit_hash[:7]
+                               if scan.commit_hash else '—' }}
+                        </code>
+                    </td>
+                    <td>
+                        {{ scan.started_at.strftime('%Y-%m-%d %H:%M')
+                           if scan.started_at else '—' }}
+                    </td>
+                    <td>
+                        {% if scan.posture_score %}
+                            {% set s = scan.posture_score.score %}
+                            {% if s >= 8.0 %}
+                                <span style="color:#22c55e;
+                                            font-weight:700">
+                                    {{ s }}/10
+                                </span>
+                            {% elif s >= 6.0 %}
+                                <span style="color:#00d4ff;
+                                            font-weight:700">
+                                    {{ s }}/10
+                                </span>
+                            {% elif s >= 4.0 %}
+                                <span style="color:#eab308;
+                                            font-weight:700">
+                                    {{ s }}/10
+                                </span>
+                            {% else %}
+                                <span style="color:#ef4444;
+                                            font-weight:700">
+                                    {{ s }}/10
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color:var(--text-secondary)">
+                                —
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap">
+                            <a href="{{ url_for('scan_detail',
+                                               scan_id=scan.id) }}"
+                               class="btn-export btn-view">
+                                <i class="fas fa-eye"></i>
+                                View
+                            </a>
+                            <a href="{{ url_for('export_csv',
+                                               scan_id=scan.id) }}"
+                               class="btn-export btn-csv">
+                                <i class="fas fa-file-csv"></i>
+                                CSV
+                            </a>
+                            <a href="{{ url_for('export_pdf',
+                                               scan_id=scan.id) }}"
+                               class="btn-export btn-pdf">
+                                <i class="fas fa-file-pdf"></i>
+                                PDF
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-file-circle-xmark empty-icon"></i>
+        <p>No completed scans yet</p>
+        <span>
+            Complete a scan first, then export your results here
+        </span>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

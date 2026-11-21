@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>
+            <i class="fas fa-gauge-high"></i>
+            Security Dashboard
+        </h2>
+        <p>
+            {% if latest_scan %}
+                Showing results from latest scan —
+                {{ latest_scan.started_at.strftime('%Y-%m-%d %H:%M')
+                   if latest_scan.started_at else '' }}
+            {% else %}
+                No scans yet — push code to get started
+            {% endif %}
+        </p>
+    </div>
+    <div class="page-header-actions">
+        <span class="badge-live">
+            <i class="fas fa-circle"></i> Live
+        </span>
+    </div>
+</div>
+
+<!-- STAT CARDS -->
+<div class="stats-grid">
+    <div class="stat-card critical">
+        <div class="stat-icon">
+            <i class="fas fa-circle-xmark"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-number">{{ critical_count }}</span>
+            <span class="stat-label">Critical</span>
+        </div>
+    </div>
+    <div class="stat-card high">
+        <div class="stat-icon">
+            <i class="fas fa-triangle-exclamation"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-number">{{ high_count }}</span>
+            <span class="stat-label">High</span>
+        </div>
+    </div>
+    <div class="stat-card medium">
+        <div class="stat-icon">
+            <i class="fas fa-circle-exclamation"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-number">{{ medium_count }}</span>
+            <span class="stat-label">Medium</span>
+        </div>
+    </div>
+    <div class="stat-card low">
+        <div class="stat-icon">
+            <i class="fas fa-circle-check"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-number">{{ total_scans }}</span>
+            <span class="stat-label">Total Scans</span>
+        </div>
+    </div>
+</div>
+
+<!-- POSTURE + CONFIDENCE ROW -->
+<div class="two-col-grid">
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i class="fas fa-shield-check"></i>
+                Security Posture Score
+            </h3>
+        </div>
+        <div class="posture-display">
+            <div class="posture-ring">
+                {% if current_score is not none %}
+                    <span class="posture-number {{ score_class }}">
+                        {{ current_score }}
+                    </span>
+                    <span class="posture-out-of">/10</span>
+                {% else %}
+                    <span class="posture-number">—</span>
+                    <span class="posture-out-of">/10</span>
+                {% endif %}
+            </div>
+            <div class="posture-meta">
+                <span class="posture-status
+                    {{ score_class if current_score is not none
+                       else 'neutral' }}">
+                    {{ score_label }}
+                </span>
+                {% if score_change is not none %}
+                    {% if score_change > 0 %}
+                        <span style="color:#22c55e;
+                                     font-size:0.85rem;
+                                     font-weight:600">
+                            ▲ +{{ score_change }} from last scan
+                        </span>
+                    {% elif score_change < 0 %}
+                        <span style="color:#ef4444;
+                                     font-size:0.85rem;
+                                     font-weight:600">
+                            ▼ {{ score_change }} from last scan
+                        </span>
+                    {% else %}
+                        <span style="color:var(--text-secondary);
+                                     font-size:0.85rem">
+                            → No change from last scan
+                        </span>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i class="fas fa-chart-donut"></i>
+                Findings by Severity
+            </h3>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="severityChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- CONFIDENCE SUMMARY -->
+{% if latest_scan %}
+<div class="two-col-grid">
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i class="fas fa-filter"></i>
+                Confidence Breakdown
+            </h3>
+        </div>
+        <div style="padding: 20px 24px;">
+            <div class="confidence-bar-row">
+                <span class="confidence-bar-label">
+                    <i class="fas fa-circle-check"
+                       style="color:#22c55e"></i>
+                    Confirmed
+                </span>
+                <span class="confidence-bar-count">
+                    {{ confirmed_count }}
+                </span>
+            </div>
+            <div class="confidence-bar-row">
+                <span class="confidence-bar-label">
+                    <i class="fas fa-circle-question"
+                       style="color:#eab308"></i>
+                    Review Needed
+                </span>
+                <span class="confidence-bar-count">
+                    {{ review_count }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i class="fas fa-chart-bar"></i>
+                Scanner Summary
+            </h3>
+        </div>
+        <div style="padding: 20px 24px;">
+            <canvas id="toolChart" height="120"></canvas>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- RECENT SCANS TABLE -->
+<div class="card">
+    <div class="card-header">
+        <h3>
+            <i class="fas fa-clock-rotate-left"></i>
+            Recent Scans
+        </h3>
+        <a href="{{ url_for('scans') }}" class="card-link">
+            View all →
+        </a>
+    </div>
+
+    {% if recent_scans %}
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Repository</th>
+                    <th>Commit</th>
+                    <th>Status</th>
+                    <th>Posture</th>
+                    <th>Started</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scan in recent_scans %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('scan_detail',
+                                           scan_id=scan.id) }}"
+                           style="color:var(--accent);
+                                  font-weight:600">
+                            #{{ scan.id }}
+                        </a>
+                    </td>
+                    <td>
+                        {{ scan.repo.name
+                           if scan.repo else 'Unknown' }}
+                    </td>
+                    <td>
+                        <code class="commit-hash">
+                            {{ scan.commit_hash[:7]
+                               if scan.commit_hash else '—' }}
+                        </code>
+                    </td>
+                    <td>
+                        <span class="status-badge
+                            status-{{ scan.status }}">
+                            {% if scan.status == 'completed' %}
+                                <i class="fas fa-circle-check"></i>
+                            {% elif scan.status == 'running' %}
+                                <i class="fas fa-spinner fa-spin"></i>
+                            {% elif scan.status == 'failed' %}
+                                <i class="fas fa-circle-xmark"></i>
+                            {% else %}
+                                <i class="fas fa-clock"></i>
+                            {% endif %}
+                            {{ scan.status | capitalize }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if scan.posture_score %}
+                            {% set s = scan.posture_score.score %}
+                            {% if s >= 8.0 %}
+                                <span style="color:#22c55e;
+                                            font-weight:700">
+                                    {{ s }}/10
+                                </span>
+                            {% elif s >= 6.0 %}
+                                <span style="color:#00d4ff;
+                                            font-weight:700">
+                                    {{ s }}/10
+                                </span>
+                            {% elif s >= 4.0 %}
+                                <span style="color:#eab308;
+                                            font-weight:700">
+                                    {{ s }}/10
+                                </span>
+                            {% else %}
+                                <span style="color:#ef4444;
+                                            font-weight:700">
+                                    {{ s }}/10
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color:var(--text-secondary)">
+                                —
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ scan.started_at.strftime('%Y-%m-%d %H:%M')
+                           if scan.started_at else '—' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-magnifying-glass empty-icon"></i>
+        <p>No scans yet</p>
+        <span>
+            Push code to a connected repository
+            to trigger your first scan
+        </span>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Severity donut chart
+const ctx1 = document.getElementById('severityChart').getContext('2d');
+new Chart(ctx1, {
+    type: 'doughnut',
+    data: {
+        labels: ['Critical', 'High', 'Medium', 'Low'],
+        datasets: [{
+            data: [
+                {{ critical_count }},
+                {{ high_count }},
+                {{ medium_count }},
+                {{ low_count }}
+            ],
+            backgroundColor: [
+                '#ef4444','#f97316','#eab308','#22c55e'
+            ],
+            borderWidth: 0,
+            hoverOffset: 6
+        }]
+    },
+    options: {
+        responsive: true,
+        cutout: '70%',
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    color: '#94a3b8',
+                    padding: 16,
+                    font: { family: 'Inter', size: 12 }
+                }
+            }
+        }
+    }
+});
+
+{% if latest_scan %}
+// Tool breakdown bar chart
+const ctx2 = document.getElementById('toolChart').getContext('2d');
+new Chart(ctx2, {
+    type: 'bar',
+    data: {
+        labels: ['Semgrep', 'Trivy', 'Gitleaks'],
+        datasets: [{
+            label: 'Findings',
+            data: [
+                {{ latest_scan.findings | selectattr('tool', 'equalto', 'semgrep') | list | length }},
+                {{ latest_scan.findings | selectattr('tool', 'equalto', 'trivy') | list | length }},
+                {{ latest_scan.findings | selectattr('tool', 'equalto', 'gitleaks') | list | length }}
+            ],
+            backgroundColor: [
+                'rgba(99,102,241,0.6)',
+                'rgba(20,184,166,0.6)',
+                'rgba(249,115,22,0.6)'
+            ],
+            borderRadius: 6,
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(255,255,255,0.05)' },
+                ticks: { color: '#64748b', font: { family: 'Inter' } }
+            },
+            x: {
+                grid: { display: false },
+                ticks: { color: '#64748b', font: { family: 'Inter' } }
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

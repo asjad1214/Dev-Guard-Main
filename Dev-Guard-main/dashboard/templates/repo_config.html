@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}Configure {{ repo.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2>
+            <i class="fas fa-sliders"></i>
+            Configure: {{ repo.name }}
+        </h2>
+        <p>
+            Control which scanners run and set severity thresholds
+            for this repository
+        </p>
+    </div>
+    <div class="page-header-actions">
+        <a href="{{ url_for('repositories') }}"
+           class="btn-export btn-view">
+            <i class="fas fa-arrow-left"></i>
+            Back to Repositories
+        </a>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">
+            <i class="fas fa-circle-check"></i>
+            <span>{{ message }}</span>
+        </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<form method="POST"
+      action="{{ url_for('save_repo_config', repo_id=repo.id) }}">
+
+    <!-- SCANNER SELECTION -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i class="fas fa-radar"></i>
+                Scanner Selection
+            </h3>
+        </div>
+        <div class="config-section">
+
+            <!-- SEMGREP -->
+            <div class="config-item">
+                <div class="config-item-left">
+                    <div class="config-item-header">
+                        <span class="tool-badge tool-semgrep">
+                            SEMGREP
+                        </span>
+                        <span class="config-item-name">
+                            Static Analysis (SAST)
+                        </span>
+                    </div>
+                    <p class="config-item-desc">
+                        Scans source code for vulnerability patterns.
+                        Detects SQL injection, XSS, insecure functions,
+                        and hundreds of other code-level security issues.
+                    </p>
+                </div>
+                <div class="config-item-right">
+                    <label class="toggle-switch">
+                        <input type="checkbox"
+                               name="run_semgrep"
+                               id="run_semgrep"
+                               {{ 'checked' if config.run_semgrep else '' }}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label" id="semgrep-label">
+                        {{ 'Enabled' if config.run_semgrep else 'Disabled' }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="config-divider"></div>
+
+            <!-- TRIVY -->
+            <div class="config-item">
+                <div class="config-item-left">
+                    <div class="config-item-header">
+                        <span class="tool-badge tool-trivy">TRIVY</span>
+                        <span class="config-item-name">
+                            Dependency Scanning (SCA)
+                        </span>
+                    </div>
+                    <p class="config-item-desc">
+                        Checks your dependencies and packages against
+                        the NVD database for known CVEs with real
+                        CVSS v3 scores.
+                    </p>
+                </div>
+                <div class="config-item-right">
+                    <label class="toggle-switch">
+                        <input type="checkbox"
+                               name="run_trivy"
+                               id="run_trivy"
+                               {{ 'checked' if config.run_trivy else '' }}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label" id="trivy-label">
+                        {{ 'Enabled' if config.run_trivy else 'Disabled' }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="config-divider"></div>
+
+            <!-- GITLEAKS -->
+            <div class="config-item">
+                <div class="config-item-left">
+                    <div class="config-item-header">
+                        <span class="tool-badge tool-gitleaks">
+                            GITLEAKS
+                        </span>
+                        <span class="config-item-name">
+                            Secret Detection
+                        </span>
+                    </div>
+                    <p class="config-item-desc">
+                        Scans all files for hardcoded secrets including
+                        API keys, passwords, tokens, and database
+                        credentials.
+                    </p>
+                </div>
+                <div class="config-item-right">
+                    <label class="toggle-switch">
+                        <input type="checkbox"
+                               name="run_gitleaks"
+                               id="run_gitleaks"
+                               {{ 'checked' if config.run_gitleaks else '' }}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label" id="gitleaks-label">
+                        {{ 'Enabled' if config.run_gitleaks else 'Disabled' }}
+                    </span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- SEVERITY THRESHOLD -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <i class="fas fa-filter"></i>
+                Severity Threshold
+            </h3>
+        </div>
+        <div class="config-section">
+            <div class="threshold-container">
+                <div class="threshold-header">
+                    <p class="config-item-desc">
+                        Findings with a normalized severity score
+                        below this threshold will be ignored and
+                        not saved to the database.
+                        Set to 0.0 to capture all findings.
+                    </p>
+                    <div class="threshold-value-display">
+                        <span id="threshold-display">
+                            {{ config.severity_threshold }}
+                        </span>
+                        <span style="color:var(--text-secondary);
+                                     font-size:0.9rem">/10</span>
+                    </div>
+                </div>
+
+                <input type="range"
+                       name="severity_threshold"
+                       id="severity_threshold"
+                       min="0" max="9" step="0.5"
+                       value="{{ config.severity_threshold }}"
+                       class="threshold-slider">
+
+                <div class="threshold-labels">
+                    <span>0.0 — All findings</span>
+                    <span style="color:var(--medium)">
+                        4.0 — Medium+
+                    </span>
+                    <span style="color:var(--high)">
+                        7.0 — High+
+                    </span>
+                    <span style="color:var(--critical)">
+                        9.0 — Critical only
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SAVE BUTTON -->
+    <div style="display:flex; justify-content:flex-end; gap:12px">
+        <a href="{{ url_for('repositories') }}"
+           class="btn-export btn-view"
+           style="padding: 12px 24px; font-size:0.9rem">
+            Cancel
+        </a>
+        <button type="submit" class="btn-save-config">
+            <i class="fas fa-floppy-disk"></i>
+            Save Configuration
+        </button>
+    </div>
+
+</form>
+
+<script>
+// Update threshold display as slider moves
+const slider  = document.getElementById('severity_threshold');
+const display = document.getElementById('threshold-display');
+
+slider.addEventListener('input', function() {
+    display.textContent = this.value;
+});
+
+// Update toggle labels when checkboxes change
+function setupToggle(id, labelId) {
+    const checkbox = document.getElementById(id);
+    const label    = document.getElementById(labelId);
+    if (!checkbox || !label) return;
+
+    checkbox.addEventListener('change', function() {
+        label.textContent = this.checked ? 'Enabled' : 'Disabled';
+        label.style.color = this.checked
+            ? 'var(--low)'
+            : 'var(--text-secondary)';
+    });
+
+    // Set initial color
+    label.style.color = checkbox.checked
+        ? 'var(--low)'
+        : 'var(--text-secondary)';
+}
+
+setupToggle('run_semgrep',  'semgrep-label');
+setupToggle('run_trivy',    'trivy-label');
+setupToggle('run_gitleaks', 'gitleaks-label');
+</script>
+{% endblock %}
